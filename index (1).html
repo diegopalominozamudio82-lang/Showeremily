@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>💕 Lista de Regalos – Baby Shower</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Nunito:wght@300;400;600;700&display=swap" rel="stylesheet">
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getFirestore, doc, setDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAAmZyS6MFkTFSrw_jyqXwpG2fiDDVqLoU",
+    authDomain: "showeremily.firebaseapp.com",
+    projectId: "showeremily",
+    storageBucket: "showeremily.firebasestorage.app",
+    messagingSenderId: "917015507686",
+    appId: "1:917015507686:web:989a78d0d00ef2f7dac127"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  // Escucha cambios en tiempo real — actualiza la UI en TODOS los dispositivos al instante
+  window._reservations = {};
+  onSnapshot(collection(db, "reservations"), (snapshot) => {
+    window._reservations = {};
+    snapshot.forEach(d => { window._reservations[d.id] = d.data(); });
+    const activeBtn = document.querySelector('.filter-btn.active');
+    const cat = activeBtn?.dataset?.cat || 'all';
+    if (typeof window.renderCards === 'function') window.renderCards(cat);
+  });
+
+  // Guardar reserva en Firestore
+  window.saveReservationFirebase = async function(id, data) {
+    await setDoc(doc(db, "reservations", String(id)), data);
+  };
+</script>
+<style>
+  :root {
+    --rose: #f4a7b9;
+    --rose-light: #fce4ec;
+    --rose-pale: #fff0f5;
+    --rose-deep: #e07a96;
+    --lilac: #d4b8e0;
+    --lilac-light: #f3eafa;
+    --cream: #fff9f5;
+    --text: #4a3040;
+    --text-light: #8a6070;
+    --white: #ffffff;
+    --shadow: rgba(224, 122, 150, 0.18);
+    --green-soft: #b8ddc8;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Nunito', sans-serif;
+    background: var(--cream);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── FLOATING ELEMENTS ── */
+  .float-bg {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none; z-index: 0; overflow: hidden;
+  }
+  .bubble {
+    position: absolute;
+    border-radius: 50%;
+    opacity: 0.13;
+    animation: floatUp linear infinite;
+  }
+  @keyframes floatUp {
+    0%   { transform: translateY(110vh) scale(0.8); opacity: 0; }
+    10%  { opacity: 0.13; }
+    90%  { opacity: 0.13; }
+    100% { transform: translateY(-10vh) scale(1.1); opacity: 0; }
+  }
+
+  /* ── HEADER ── */
+  header {
+    position: relative; z-index: 2;
+    background: linear-gradient(145deg, #fce4ec 0%, #f8d7e8 40%, #ede0f5 100%);
+    text-align: center;
+    padding: 60px 20px 50px;
+    overflow: hidden;
+  }
+  header::before {
+    content: '';
+    position: absolute; top: -60px; left: -60px;
+    width: 220px; height: 220px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #f4a7b9 0%, transparent 70%);
+    opacity: 0.35;
+  }
+  header::after {
+    content: '';
+    position: absolute; bottom: -60px; right: -60px;
+    width: 260px; height: 260px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #d4b8e0 0%, transparent 70%);
+    opacity: 0.3;
+  }
+  .header-emoji { font-size: 3.2rem; display: block; margin-bottom: 12px; animation: bounce 2s infinite; }
+  @keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+  header h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(2rem, 5vw, 3.2rem);
+    color: #c2527a;
+    line-height: 1.2;
+  }
+  header h1 span { display: block; font-style: italic; font-size: 0.65em; color: var(--text-light); font-weight: 400; margin-top: 6px; }
+  .header-subtitle {
+    margin-top: 16px;
+    font-size: 1rem;
+    color: var(--text-light);
+    font-weight: 300;
+    letter-spacing: 0.05em;
+  }
+  .hearts-row { margin-top: 18px; font-size: 1.4rem; letter-spacing: 6px; }
+
+  /* ── LEGEND ── */
+  .legend {
+    position: relative; z-index: 2;
+    display: flex; flex-wrap: wrap; justify-content: center; gap: 16px;
+    padding: 22px 20px;
+    background: white;
+    border-bottom: 2px dashed #f4c2d0;
+  }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--text-light); }
+  .dot { width: 14px; height: 14px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+  .dot-available { background: var(--green-soft); border: 2px solid #7ab998; }
+  .dot-reserved  { background: #f4a7b9; border: 2px solid var(--rose-deep); }
+
+  /* ── FILTERS ── */
+  .filters {
+    position: relative; z-index: 2;
+    display: flex; flex-wrap: wrap; justify-content: center; gap: 10px;
+    padding: 18px 20px;
+    background: var(--rose-pale);
+  }
+  .filter-btn {
+    padding: 7px 18px;
+    border-radius: 999px;
+    border: 2px solid var(--rose);
+    background: white;
+    color: var(--text);
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .2s;
+  }
+  .filter-btn:hover, .filter-btn.active {
+    background: var(--rose);
+    color: white;
+    border-color: var(--rose-deep);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px var(--shadow);
+  }
+
+  /* ── GRID ── */
+  .grid-wrap {
+    position: relative; z-index: 2;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 30px 20px 60px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 22px;
+  }
+
+  /* ── CARD ── */
+  .card {
+    background: white;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 4px 20px var(--shadow);
+    border: 1.5px solid #fce4ec;
+    transition: transform .25s, box-shadow .25s;
+    display: flex; flex-direction: column;
+    position: relative;
+  }
+  .card:hover { transform: translateY(-4px); box-shadow: 0 10px 32px rgba(224,122,150,.25); }
+  .card.reserved {
+    border-color: var(--rose);
+    opacity: 0.82;
+  }
+  .card.reserved::after {
+    content: '💕 Separado';
+    position: absolute; top: 14px; right: 14px;
+    background: var(--rose-deep);
+    color: white;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 4px 12px;
+    border-radius: 999px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+
+  .card-badge {
+    position: absolute; top: 14px; left: 14px;
+    background: var(--lilac);
+    color: #5a3a7a;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 999px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .card-icon {
+    background: linear-gradient(135deg, #fce4ec, #f3eafa);
+    display: flex; align-items: center; justify-content: center;
+    height: 100px;
+    font-size: 3rem;
+  }
+
+  .card-body { padding: 16px 18px 14px; flex: 1; }
+  .card-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1rem;
+    color: var(--text);
+    line-height: 1.4;
+    margin-bottom: 6px;
+  }
+  .card-brand {
+    font-size: 0.75rem;
+    color: var(--text-light);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 10px;
+  }
+
+  .card-footer {
+    padding: 0 18px 16px;
+    display: flex; gap: 8px;
+  }
+  .btn {
+    flex: 1;
+    padding: 9px 10px;
+    border-radius: 12px;
+    border: none;
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all .2s;
+    text-decoration: none;
+    text-align: center;
+    display: flex; align-items: center; justify-content: center; gap: 5px;
+  }
+  .btn-reserve {
+    background: linear-gradient(135deg, var(--rose), var(--rose-deep));
+    color: white;
+    box-shadow: 0 3px 10px rgba(224,122,150,.4);
+  }
+  .btn-reserve:hover { filter: brightness(1.08); transform: translateY(-1px); }
+  .btn-reserve:disabled, .btn-reserve.used {
+    background: #ddd; color: #aaa; box-shadow: none; cursor: not-allowed; transform: none;
+  }
+  .btn-link {
+    background: var(--lilac-light);
+    color: #6a3a9a;
+    border: 1.5px solid var(--lilac);
+  }
+  .btn-link:hover { background: var(--lilac); color: white; }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(74,48,64,.45);
+    backdrop-filter: blur(4px);
+    z-index: 100;
+    align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: white;
+    border-radius: 24px;
+    padding: 36px 32px;
+    max-width: 460px;
+    width: 100%;
+    position: relative;
+    box-shadow: 0 20px 60px rgba(74,48,64,.3);
+    animation: popIn .3s cubic-bezier(.175,.885,.32,1.275);
+  }
+  @keyframes popIn { from{transform:scale(.85);opacity:0} to{transform:scale(1);opacity:1} }
+  .modal-close {
+    position: absolute; top: 14px; right: 18px;
+    background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-light);
+    line-height: 1;
+  }
+  .modal h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.5rem;
+    color: #c2527a;
+    margin-bottom: 6px;
+  }
+  .modal .modal-product {
+    font-size: 0.85rem;
+    color: var(--text-light);
+    margin-bottom: 22px;
+    background: var(--rose-pale);
+    padding: 8px 12px;
+    border-radius: 10px;
+    font-style: italic;
+  }
+  .form-group { margin-bottom: 16px; }
+  .form-group label {
+    display: block;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 6px;
+    letter-spacing: 0.03em;
+  }
+  .form-group input, .form-group textarea {
+    width: 100%;
+    padding: 11px 14px;
+    border-radius: 12px;
+    border: 2px solid #f0d0da;
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.9rem;
+    color: var(--text);
+    background: var(--rose-pale);
+    transition: border-color .2s;
+    outline: none;
+    resize: none;
+  }
+  .form-group input:focus, .form-group textarea:focus {
+    border-color: var(--rose-deep);
+    background: white;
+  }
+  .btn-submit {
+    width: 100%;
+    padding: 13px;
+    background: linear-gradient(135deg, var(--rose), var(--rose-deep));
+    color: white;
+    border: none;
+    border-radius: 14px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all .2s;
+    box-shadow: 0 4px 16px rgba(224,122,150,.4);
+    margin-top: 4px;
+  }
+  .btn-submit:hover { filter: brightness(1.08); transform: translateY(-2px); }
+
+  /* ── SUCCESS TOAST ── */
+  .toast {
+    position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+    background: #3a7a58;
+    color: white;
+    padding: 14px 28px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    z-index: 200;
+    box-shadow: 0 6px 20px rgba(0,0,0,.2);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .4s;
+  }
+  .toast.show { opacity: 1; }
+
+  /* ── CONTACT STRIP ── */
+  .contact-strip {
+    position: relative; z-index: 2;
+    background: linear-gradient(135deg, #fce4ec, #ede0f5);
+    text-align: center;
+    padding: 40px 20px;
+    border-top: 2px dashed #f4c2d0;
+  }
+  .contact-strip h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.6rem;
+    color: #c2527a;
+    margin-bottom: 10px;
+  }
+  .contact-strip p { color: var(--text-light); font-size: 0.95rem; margin-bottom: 6px; }
+  .contact-strip a { color: var(--rose-deep); font-weight: 700; text-decoration: none; }
+  .contact-strip a:hover { text-decoration: underline; }
+
+  /* ── EMPTY STATE ── */
+  .empty { display: none; text-align: center; padding: 40px; grid-column: 1/-1; color: var(--text-light); font-style: italic; }
+
+  @media(max-width:600px){
+    header { padding: 40px 16px 34px; }
+    .grid-wrap { padding: 20px 14px 40px; gap: 16px; }
+    .modal { padding: 26px 20px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Floating bubbles bg -->
+<div class="float-bg" id="floatBg"></div>
+
+<!-- HEADER -->
+<header>
+  <span class="header-emoji">👶🏻</span>
+  <h1>Lista de Regalos<span>Baby Shower 💕</span></h1>
+  <p class="header-subtitle">¡Estamos esperando a nuestra bebé y nos encantaría contar con tu apoyo!</p>
+  <div class="hearts-row">🌸 🎀 🌸 🎀 🌸</div>
+</header>
+
+<!-- LEGEND -->
+<div class="legend">
+  <div class="legend-item"><span class="dot dot-available"></span> Disponible para separar</div>
+  <div class="legend-item"><span class="dot dot-reserved"></span> Ya fue separado</div>
+  <div class="legend-item">🔗 Ver producto en tienda</div>
+</div>
+
+<!-- FILTERS -->
+<div class="filters">
+  <button class="filter-btn active" onclick="filterCards('all', this)">🛍 Todos</button>
+  <button class="filter-btn" onclick="filterCards('movilidad', this)">🍼 Movilidad</button>
+  <button class="filter-btn" onclick="filterCards('ropa', this)">👗 Ropa</button>
+  <button class="filter-btn" onclick="filterCards('lactancia', this)">🤱 Lactancia</button>
+  <button class="filter-btn" onclick="filterCards('cuidado', this)">🛁 Cuidado</button>
+  <button class="filter-btn" onclick="filterCards('dormir', this)">🌙 Dormir</button>
+  <button class="filter-btn" onclick="filterCards('juego', this)">🎈 Juego</button>
+  <button class="filter-btn" onclick="filterCards('organizacion', this)">📦 Organización</button>
+</div>
+
+<!-- GRID -->
+<div class="grid-wrap" id="grid"></div>
+
+<!-- EMPTY STATE -->
+<p class="empty" id="empty">No hay productos en esta categoría.</p>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <h2>🎀 Separar Regalo</h2>
+    <p class="modal-product" id="modalProductName"></p>
+    <div class="form-group">
+      <label>Tu nombre completo *</label>
+      <input type="text" id="fname" placeholder="Ej: María García" required>
+    </div>
+    <div class="form-group">
+      <label>Tu teléfono / WhatsApp *</label>
+      <input type="tel" id="fphone" placeholder="Ej: +51 999 999 999" required>
+    </div>
+    <div class="form-group">
+      <label>Mensaje para los papás (opcional)</label>
+      <textarea id="fmsg" rows="3" placeholder="¡Muchas felicidades!..."></textarea>
+    </div>
+    <button class="btn-submit" onclick="submitReservation()">💕 Confirmar separado</button>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast">✅ ¡Regalo separado con éxito!</div>
+
+<!-- CONTACT -->
+<div class="contact-strip" id="contactStrip">
+  <h2>📲 Contacto de los papás</h2>
+  <p>¿Tienes dudas o quieres coordinar? ¡Escríbenos!</p>
+  <p id="contactInfo">💌 <a href="mailto:emilybabyshower5@gmail.com">emilybabyshower5@gmail.com</a></p>
+  <p style="margin-top:12px;font-size:0.8rem;color:#c0a0aa;">Una vez que confirmes tu regalo, nos llegará tu información de inmediato.</p>
+</div>
+
+<script>
+const PRODUCTS = [
+  // MOVILIDAD
+  { id:1,  name:"Silla de Comer Bebé 4 en 1 Yaris Priori", brand:"PRIORI", cat:"movilidad", icon:"🪑", link:"https://www.falabella.com.pe/falabella-pe/search?Ntt=Silla+Comer+Bebe+Yaris+Priori" },
+  { id:2,  name:"Coche Moisés de Paseo Bebé Frezzio Plegable", brand:"YAMP", cat:"movilidad", icon:"🛒", link:"https://www.falabella.com.pe/falabella-pe/search?Ntt=Coche+Moises+Frezzio+Yamp" },
+  { id:3,  name:"Coche de Paseo Forest", brand:"INFANTI", cat:"movilidad", icon:"🍃", link:"https://www.falabella.com.pe/falabella-pe/search?Ntt=Coche+Paseo+Forest+Infanti" },
+  { id:4,  name:"Silla de Auto Bebé 360 Isofix Twist", brand:"PRIORI", cat:"movilidad", icon:"🚗", link:"https://www.falabella.com.pe/falabella-pe/search?Ntt=Silla+Auto+360+Isofix+Priori" },
+  { id:5,  name:"Canguro Porta Bebé Carestino", brand:"", cat:"movilidad", icon:"🦘", link:"https://www.falabella.com.pe/falabella-pe/search?Ntt=Canguro+Porta+Bebe+Carestino" },
+
+  // DORMIR
+  { id:6,  name:"Cuna Colecho Bebé con Almohada Pima", brand:"", cat:"dormir", icon:"🛏", link:"https://www.falabella.com.pe/falabella-pe/search?Ntt=Cuna+Colecho+Pima" },
+  { id:7,  name:"Mecedora de Lactancia Cosmos Plata", brand:"", cat:"dormir", icon:"🪑", link:"https://www.falabella.com.pe/falabella-pe/search?Ntt=Mecedora+Lactancia+Cosmos" },
+  { id:8,  name:"Cuna Corral Happy Dream con Cambiador + Colchón", brand:"EBABY", cat:"dormir", icon:"🌙", link:"https://www.falabella.com.pe/falabella-pe/search?Ntt=Cuna+Corral+Happy+Dream+Ebaby" },
+  { id:9,  name:"Saco de Dormir Media Estación Baby Bunny Pink", brand:"", cat:"dormir", icon:"🐰", link:"https://www.falabella.com.pe/falabella-pe/search?Ntt=Saco+Dormir+Baby+Bunny+Pink" },
+  { id:10, name:"Saco de Dormir Bebé de Algodón Pima Dino Tales", brand:"", cat:"dormir", icon:"🦕", link:"https://www.falabella.com.pe/falabella-pe/search?Ntt=Saco+Dormir+Pima+Dino+Tales" },
+  { id:11, name:"Manta Muselina para Bebé 6 Capas 100% Algodón – Diseño Vaquita", brand:"", cat:"dormir", icon:"🐄", link:"https://www.falabella.com.pe/falabella-pe/search?Ntt=Manta+Muselina+6+capas+vaquita" },
+
+  // ROPA
+  { id:12, name:"Bata Algodón", brand:"CARTERS", cat:"ropa", icon:"🩱", link:"https://www.falabella.com.pe/falabella-pe/search?Ntt=Bata+Algodon+Carters" },
+  { id:13, name:"Enterizos Bebé Niña Algodón", brand:"YAMP", cat:"ropa", icon:"👶", link:"https://www.falabella.com.pe/falabella-pe/search?Ntt=Enterizos+Bebe+Nina+Yamp" },
+  { id:14, name:"Set Bebé Niña 4 Piezas Algodón", brand:"YAMP", cat:"ropa", icon:"🎀", link:"https://www.falabella.com.pe/falabella-pe/search?Ntt=Set+Bebe+Nina+4+Piezas+Yamp" },
+  { id:15, name:"Body Bebé Niña Pack x7", brand:"CARTERS", cat:"ropa", icon:"👗", link:"https://www.falabella.com.pe/falabella-pe/search?Ntt=Body+Bebe+Pack+x7+Carters" },
+  { id:16, name:"Body Bebé Niña Manga Larga Algodón", brand:"", cat:"ropa", icon:"🌸", link:"https://www.falabella.com.pe/falabella-pe/search?Ntt=Body+Bebe+Nina+Manga+Larga" },
+  { id:17, name:"Pijama Bebé Niña", brand:"CARTERS", cat:"ropa", icon:"🌙", link:"https://www.falabella.com.pe/falabella-pe/search?Ntt=Pijama+Bebe+Nina+Carters" },
+  { id:18, name:"Pijama Bebé Niña (2do modelo)", brand:"CARTERS", cat:"ropa", icon:"⭐", link:"https://www.falabella.com.pe/falabella-pe/search?Ntt=Pijama+Bebe+Nina+Carters" },
+
+  // LACTANCIA
+  { id:23, name:"Extractor de Leche Portátil M5 Doble Succión", brand:"MOMCOZY", cat:"lactancia", icon:"🤱", link:"https://www.falabella.com.pe/falabella-pe/search?Ntt=Extractor+Leche+M5+Momcozy" },
+  { id:24, name:"Bolsa de Almacenamiento x100 Und 180ml", brand:"LANSINOH", cat:"lactancia", icon:"🍼", link:"https://www.falabella.com.pe/falabella-pe/search?Ntt=Bolsa+Almacenamiento+Leche+Lansinoh" },
+  { id:25, name:"Pack x3 Botellas Almacenamiento Leche 150ml", brand:"MEDELA", cat:"lactancia", icon:"🥛", link:"https://www.falabella.com.pe/falabella-pe/search?Ntt=Botellas+Almacenamiento+Medela" },
+  { id:26, name:"Biberón Softouch Peristaltic Plus Vidrio 160ml Boca Ancha", brand:"", cat:"lactancia", icon:"🍶", link:"https://www.falabella.com.pe/falabella-pe/search?Ntt=Biberon+Softouch+Peristaltic+vidrio" },
+  { id:27, name:"Tetina Peristáltica Boca Ancha L – 2 Unidades", brand:"", cat:"lactancia", icon:"🔵", link:"https://www.falabella.com.pe/falabella-pe/search?Ntt=Tetina+Peristaltica+Boca+Ancha" },
+  { id:28, name:"Pack x2 Biberón Pigeon Peristaltic Plus Boca Ancha 240ml", brand:"PIGEON", cat:"lactancia", icon:"🐦", link:"https://www.falabella.com.pe/falabella-pe/search?Ntt=Biberon+Pigeon+Peristaltic+240ml" },
+  { id:29, name:"Protectores de Lactancia Honeycomb 36 pz", brand:"PIGEON", cat:"lactancia", icon:"🍯", link:"https://www.falabella.com.pe/falabella-pe/search?Ntt=Protectores+Lactancia+Pigeon+Honeycomb" },
+  { id:30, name:"Cobertor de Lactancia Lila Multiusos", brand:"EUBEBE", cat:"lactancia", icon:"💜", link:"https://www.falabella.com.pe/falabella-pe/search?Ntt=Cobertor+Lactancia+Eubebe" },
+  { id:31, name:"Calentador de Biberón Portátil Recargable con Pantalla Digital", brand:"", cat:"lactancia", icon:"🌡", link:"https://www.falabella.com.pe/falabella-pe/search?Ntt=Calentador+Biberon+Portatil+Recargable" },
+  { id:32, name:"Calentador de Biberones 8 en 1 Eléctrico", brand:"DAUER", cat:"lactancia", icon:"🔌", link:"https://www.falabella.com.pe/falabella-pe/search?Ntt=Calentador+Biberones+Dauer+8+en+1" },
+  { id:33, name:"Cooler Dual Temp Multifuncional Leche Materna 24h Acero Inox", brand:"DAUER", cat:"lactancia", icon:"❄️", link:"https://www.falabella.com.pe/falabella-pe/search?Ntt=Cooler+Dual+Temp+Dauer" },
+
+  // CUIDADO
+  { id:34, name:"Cómoda Zupy", brand:"", cat:"cuidado", icon:"🗄", link:"https://www.falabella.com.pe/falabella-pe/search?Ntt=Comoda+Zupy" },
+  { id:35, name:"Sistema para Desechar Pañales Twist & Click Blanco", brand:"TOMEE TIPPEE", cat:"cuidado", icon:"🗑", link:"https://www.falabella.com.pe/falabella-pe/search?Ntt=Desechador+Panales+Twist+Click+Tomee" },
+  { id:36, name:"Cambiador Portátil Osito", brand:"", cat:"cuidado", icon:"🐻", link:"https://www.falabella.com.pe/falabella-pe/search?Ntt=Cambiador+Portatil+Osito" },
+  { id:37, name:"Almohadita Anticabeza Plana Osito", brand:"", cat:"cuidado", icon:"💆", link:"https://www.falabella.com.pe/falabella-pe/search?Ntt=Almohadita+Anticabeza+Plana+Osito" },
+  { id:38, name:"Eucerin Baby Lotion 400ml", brand:"EUCERIN", cat:"cuidado", icon:"🧴", link:"https://www.falabella.com.pe/falabella-pe/search?Ntt=Eucerin+Baby+Lotion+400ml" },
+  { id:39, name:"Eucerin Baby Wash and Shampoo 400ml", brand:"EUCERIN", cat:"cuidado", icon:"🧼", link:"https://www.falabella.com.pe/falabella-pe/search?Ntt=Eucerin+Baby+Wash+Shampoo" },
+  { id:40, name:"Toallitas Húmedas Waterwipes Caja 720 Und", brand:"WATERWIPES", cat:"cuidado", icon:"🌊", link:"https://www.falabella.com.pe/falabella-pe/search?Ntt=Waterwipes+720" },
+  { id:41, name:"Aspirador Nasal Eléctrico Recargable Infantil Rosado", brand:"", cat:"cuidado", icon:"👃", link:"https://www.falabella.com.pe/falabella-pe/search?Ntt=Aspirador+Nasal+Electrico+Bebe" },
+  { id:42, name:"Toalla Baño Bebé – Gatita – Coral", brand:"", cat:"cuidado", icon:"🛁", link:"https://www.falabella.com.pe/falabella-pe/search?Ntt=Toalla+Bano+Bebe+Gatita" },
+  { id:43, name:"Set Cepillo y Peine para Bebé Rosado", brand:"CHICCO", cat:"cuidado", icon:"💗", link:"https://www.falabella.com.pe/falabella-pe/search?Ntt=Set+Cepillo+Peine+Bebe+Chicco" },
+  { id:44, name:"Kit Cortaúñas Manicure Pulidor Uñas", brand:"", cat:"cuidado", icon:"💅", link:"https://www.falabella.com.pe/falabella-pe/search?Ntt=Kit+Cortaunias+Bebe+Manicure" },
+  { id:45, name:"Termómetro Infrarrojo TP500", brand:"CONTEC", cat:"cuidado", icon:"🌡", link:"https://www.falabella.com.pe/falabella-pe/search?Ntt=Termometro+Infrarrojo+Contec+TP500" },
+  { id:46, name:"Bañera Cambiador Plegable con Tallímetro Spark Azul", brand:"EBABY", cat:"cuidado", icon:"🛁", link:"https://www.falabella.com.pe/falabella-pe/search?Ntt=Banera+Cambiador+Spark+Ebaby" },
+
+  // JUEGO
+  { id:47, name:"Set Sonajas con Mordedor 8 Piezas Estimulación", brand:"", cat:"juego", icon:"🎶", link:"https://www.falabella.com.pe/falabella-pe/search?Ntt=Set+Sonajas+Mordedor+8+piezas" },
+  { id:48, name:"Gimnasio y Caminador Multifuncional Didáctico 2 en 1", brand:"", cat:"juego", icon:"🎠", link:"https://www.falabella.com.pe/falabella-pe/search?Ntt=Gimnasio+Caminador+Multifuncional+2en1" },
+
+  // ORGANIZACIÓN
+  { id:49, name:"Monitor de Bebés Baby Monitor Control Remoto 5\" HD 1080P", brand:"", cat:"organizacion", icon:"📺", link:"https://www.falabella.com.pe/falabella-pe/search?Ntt=Monitor+Bebe+5+HD+1080P" },
+  { id:50, name:"Monitor de Bebé Visión Nocturna WiFi HD", brand:"", cat:"organizacion", icon:"👁", link:"https://www.falabella.com.pe/falabella-pe/search?Ntt=Monitor+Bebe+Wifi+Vision+Nocturna" },
+  { id:51, name:"Mochila Pañalera Cuna 3 en 1 con Porta Sonaja", brand:"", cat:"organizacion", icon:"🎒", link:"https://www.falabella.com.pe/falabella-pe/search?Ntt=Mochila+Panialera+Cuna+3+en+1" },
+  { id:52, name:"Carrito Organizador Multiuso 4 Niveles Negro", brand:"", cat:"organizacion", icon:"🗂", link:"https://www.falabella.com.pe/falabella-pe/search?Ntt=Carrito+Organizador+4+Niveles" }
+];
+
+// Reservations vienen de Firebase (window._reservations)
+function loadReservations() {
+  return window._reservations || {};
+}
+
+let currentProductId = null;
+let currentFilter = 'all';
+
+function renderCards(filter) {
+  if (filter !== undefined) currentFilter = filter;
+  const grid = document.getElementById('grid');
+  const reservations = loadReservations();
+  grid.innerHTML = '';
+  const filtered = currentFilter === 'all' ? PRODUCTS : PRODUCTS.filter(p => p.cat === currentFilter);
+
+  filtered.forEach(p => {
+    // Buscar por id como string o número (Firebase guarda como string)
+    const isReserved = !!(reservations[p.id] || reservations[String(p.id)]);
+    const resData = reservations[p.id] || reservations[String(p.id)];
+    const reservedBy = isReserved ? resData.name : '';
+    const card = document.createElement('div');
+    card.className = 'card' + (isReserved ? ' reserved' : '');
+    card.dataset.cat = p.cat;
+    card.innerHTML = `
+      ${p.brand ? `<div class="card-badge">${p.brand}</div>` : ''}
+      <div class="card-icon">${p.icon}</div>
+      <div class="card-body">
+        <div class="card-title">${p.name}</div>
+        ${isReserved ? `<div style="font-size:0.78rem;color:#c2527a;margin-top:4px;">💕 Separado por <strong>${reservedBy}</strong></div>` : ''}
+      </div>
+      <div class="card-footer">
+        ${isReserved
+          ? `<button class="btn btn-reserve used" disabled>💕 Ya separado</button>`
+          : `<button class="btn btn-reserve" onclick="openModal(${p.id})">🎀 Separar</button>`}
+        <a class="btn btn-link" href="${p.link}" target="_blank" rel="noopener">🔗 Ver</a>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+  document.getElementById('empty').style.display = filtered.length === 0 ? 'block' : 'none';
+}
+
+function filterCards(cat, btn) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderCards(cat);
+}
+
+function openModal(id) {
+  // Doble check: verificar que no esté ya separado antes de abrir modal
+  const reservations = loadReservations();
+  if (reservations[id] || reservations[String(id)]) {
+    showToast('Este regalo ya fue separado 💕');
+    return;
+  }
+  currentProductId = id;
+  const p = PRODUCTS.find(x => x.id === id);
+  document.getElementById('modalProductName').textContent = p.icon + ' ' + p.name;
+  document.getElementById('fname').value = '';
+  document.getElementById('fphone').value = '';
+  document.getElementById('fmsg').value = '';
+  document.getElementById('modalOverlay').classList.add('open');
+}
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('open');
+  currentProductId = null;
+}
+
+function submitReservation() {
+  const name  = document.getElementById('fname').value.trim();
+  const phone = document.getElementById('fphone').value.trim();
+  const msg   = document.getElementById('fmsg').value.trim();
+  if (!name || !phone) { alert('Por favor completa tu nombre y teléfono 💕'); return; }
+
+  // Triple check: verificar que no esté ya separado antes de guardar
+  const reservations = loadReservations();
+  if (reservations[currentProductId] || reservations[String(currentProductId)]) {
+    closeModal();
+    showToast('Alguien más ya separó este regalo 💕');
+    renderCards();
+    return;
+  }
+
+  const p = PRODUCTS.find(x => x.id === currentProductId);
+  const data = { name, phone, msg, date: new Date().toLocaleDateString('es-PE') };
+
+  // Deshabilitar botón para evitar doble click
+  const btnSubmit = document.querySelector('.btn-submit');
+  if (btnSubmit) { btnSubmit.disabled = true; btnSubmit.textContent = 'Guardando...'; }
+
+  // Guardar en Firebase (sincroniza en todos los dispositivos)
+  if (typeof window.saveReservationFirebase === 'function') {
+    window.saveReservationFirebase(currentProductId, data).then(() => {
+      // Notificar via Formspree solo si Firebase guardó OK
+      fetch("https://formspree.io/f/mqewgbwb", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        body: JSON.stringify({
+          producto: p.name, nombre: name, telefono: phone,
+          mensaje: msg || '(sin mensaje)', fecha: data.date
+        })
+      }).then(res => {
+        if (res.ok) console.log('Formspree OK ✅');
+        else res.json().then(d => console.error('Formspree error:', JSON.stringify(d)));
+      }).catch(err => console.error('Fetch error:', err));
+
+      closeModal();
+      showToast('¡Gracias ' + name + '! Tu regalo fue separado 💕');
+    }).catch(err => {
+      console.error('Firebase error:', err);
+      if (btnSubmit) { btnSubmit.disabled = false; btnSubmit.textContent = '💕 Confirmar separado'; }
+      alert('Hubo un error al guardar. Por favor intenta de nuevo.');
+    });
+  } else {
+    closeModal();
+    showToast('¡Gracias ' + name + '! 💕');
+  }
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = '✅ ' + msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+// Floating bubbles
+function createBubbles() {
+  const bg = document.getElementById('floatBg');
+  const colors = ['#f4a7b9','#d4b8e0','#fce4ec','#b8ddc8','#f8d7e8'];
+  for (let i = 0; i < 18; i++) {
+    const b = document.createElement('div');
+    b.className = 'bubble';
+    const size = 20 + Math.random() * 60;
+    b.style.cssText = `
+      width:${size}px;height:${size}px;
+      left:${Math.random()*100}%;
+      background:${colors[Math.floor(Math.random()*colors.length)]};
+      animation-duration:${8+Math.random()*12}s;
+      animation-delay:${Math.random()*10}s;
+    `;
+    bg.appendChild(b);
+  }
+}
+
+// Close modal on overlay click
+document.getElementById('modalOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+createBubbles();
+window.renderCards = renderCards;
+window._reservations = {};
+// Render inicial (sin reservas) mientras carga Firebase
+renderCards('all');
+// Firebase listener actualizará automáticamente cuando conecte
+</script>
+</body>
+</html>
